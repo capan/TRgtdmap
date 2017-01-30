@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>1970'ten 2015'e Tum Saldirilar</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+    <meta name="keywords" content="turkey, insurgency, datasets, maps, data visualization, spatial data, CARTO">
+    <meta name="author" content="capanh">
+    <link rel="shortcut icon" href="http://cartodb.com/assets/favicon.ico" />
+    <style>
+      html, body, #map {
+        height: 100%;
+        padding: 0;
+        margin: 0;
+      }
+      #slider {
+        position: absolute;
+        bottom: 40px;
+        right: 40px;
+        left:40px;
+      }
+
+      #legend {
+        font-family: relative;
+        font-size: 27px;
+        position: absolute;
+        bottom: 250px;
+        left: 350px;
+      }
+    </style>
+    <link rel="stylesheet" href="http://libs.cartocdn.com/cartodb.js/v3/themes/css/cartodb.css" />
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css" />
+    <!--[if lte IE 8]>
+      <link rel="stylesheet" href="http://libs.cartocdn.com/cartodb.js/v2/themes/css/cartodb.ie.css" />
+    <![endif]-->
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="slider"></div>
+    <div id="legend"></div>
+
+    
+    <!-- include cartodb.js library -->
+    <script src="http://libs.cartocdn.com/cartodb.js/v3/cartodb.js"></script>
+    <script src="http://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
+
+    <script>
+
+      function changeLegend(start, end) {
+          $('#legend').html(new Date(start).getFullYear() + " - " + new Date(end).getFullYear())
+      }
+      function addTimeSlider(sublayer) {
+         var sql = cartodb.SQL({ user: 'capanh' })
+         // zaman aralığını çekme
+         sql.execute('select max(date), min(date) from turkiye_19702015_saldirilar_1', function(data) {
+           var range = data.rows[0];
+           var max = new Date(range.max).getTime()
+           var min = new Date(range.min).getTime()
+           // update slider with range
+           $("#slider").slider({
+              range: true,
+              min: min,
+              max: max,
+              values: [ min , (min + max)/2 ],
+              change: function(event, ui) {
+                // slider degistikce
+                changeLegend(ui.values[0], ui.values[1]);
+              },
+              stop: function( event, ui ) {
+                // kullanici slideri kaydirdikca
+                var start = new Date(ui.values[0]).toISOString()
+                var end = new Date(ui.values[1]).toISOString();
+
+                // build sql
+                sublayer.setSQL("select * from turkiye_19702015_saldirilar_1 where date >= '" + start + "' and date <= '" + end + "'");
+              }
+            });
+            changeLegend(min, (min + max)/ 2);
+         });
+		
+      }
+
+      function main() {
+
+        var map = new L.Map('map', {
+          zoomControl: false,
+          center: [38.9765, 35.3320],
+          zoom: 5
+        });
+
+        L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/toner/{z}/{x}/{y}.png', {
+          attribution: 'CartoDB · OSM data'
+        }).addTo(map);
+
+        cartodb.createLayer(map, 'https://capanh.carto.com/api/v2/viz/ea55b7c6-e40b-11e6-9e64-0ef7f98ade21/viz.json', { legends: true})
+         .addTo(map)
+         .on('done', function(layer) {
+           // slider ekle
+           addTimeSlider(layer.getSubLayer(0));
+        }).on('error', function() {
+          cartodb.log.log("bir hata olustu :(");
+        });
+      }
+      window.onload = main;
+    </script>
+  </body>
+</html>
